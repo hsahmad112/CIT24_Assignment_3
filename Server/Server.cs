@@ -18,7 +18,7 @@ public class Server
 
 
     }
-   
+
 
     public void Run()
     {
@@ -35,7 +35,7 @@ public class Server
             var client = server.AcceptTcpClient();
             Console.WriteLine("Client connected!!!");
 
-           Task.Run(() => ValidateRequest(client, GetRequest(client)));
+            Task.Run(() => ValidateRequest(client, GetRequest(client)));
 
 
             /*Boiler plate try-catch
@@ -59,7 +59,7 @@ public class Server
 
     }
 
-private string ReadFromStream(NetworkStream stream)
+    private string ReadFromStream(NetworkStream stream)
     {
         var buffer = new byte[1024];
         var readCount = stream.Read(buffer);
@@ -75,7 +75,7 @@ private string ReadFromStream(NetworkStream stream)
 
 
 
-public void PrintCategories()
+    public void PrintCategories()
     {
 
         List<Category> categories = new List<Category>()
@@ -92,7 +92,7 @@ public void PrintCategories()
 
     }
 
-public Request GetRequest(TcpClient client)
+    public Request GetRequest(TcpClient client)
     {
         var options = new JsonSerializerOptions // requesting case insensitivty, might move this to outside of the method for general usgae
         {
@@ -109,18 +109,22 @@ public Request GetRequest(TcpClient client)
     }
 
 
- void ValidateRequest(TcpClient client, Request req)
+    void ValidateRequest(TcpClient client, Request req)
     {
-        Response response = new Response("","");
+        Response response = new Response("", "");
         var stream = client.GetStream();
         string[] validMethods = ["create", "read", "update", "delete", "echo"];
+        string[] validMethodsForBody = ["create", "update", "echo"];
+
         string partialPath = "API/categories";
 
         Console.WriteLine(req.Body);
-        //if something anything missing
-        if (req.Body == null && req.Date == null && req.Path == null && req.Method == null )
-        {;
-            if(req.Body == null) {
+        //if any element in request missing
+        if (req.Body == null && req.Date == null && req.Path == null && req.Method == null)
+        {
+            ;
+            if (req.Body == null)
+            {
                 response.AddOrAppendToStatus("missing body");
             }
             if (req.Date == null)
@@ -134,23 +138,30 @@ public Request GetRequest(TcpClient client)
             if (req.Path == null)
             {
                 response.AddOrAppendToStatus("missing resource");
-                
+
             }
 
             //WriteToStream(stream, ToJson(response)); //Dont know why this does not work
             WriteToStream(stream, JsonSerializer.Serialize(response)); //temp solution Writes to stream
         }
-       
 
-        foreach (var method in validMethods) {
-            if (req.Method != method) 
+
+        foreach (var method in validMethods)
+        {
+            if (req.Method != method)
             {
-             response.AddOrAppendToStatus("illegal method1");
+                response.AddOrAppendToStatus("illegal method");
 
                 if (req.Body == null && req.Path == null)
                 {
                     response.AddOrAppendToStatus("missing resource");
-                    
+
+                }
+
+                if (req.Body == null)
+                {
+                    response.AddOrAppendToStatus("missing body");
+
                 }
 
                 if (req.Date.Contains("/"))
@@ -160,34 +171,23 @@ public Request GetRequest(TcpClient client)
                     WriteToStream(stream, JsonSerializer.Serialize(response));
 
                 }
-                
 
-                WriteToStream(stream, JsonSerializer.Serialize(response));
+                else
+                {
+
+                    WriteToStream(stream, JsonSerializer.Serialize(response));
+                }
+
+
             }
+
+
         }
-       
-
-
-        /*   if (req.Path == null && req.Body == null)
-           {
-               response.AddOrAppendToStatus("missing resource");
-               WriteToStream(stream, JsonSerializer.Serialize(response));
-           }
-        */
-
     }
 
-    /*
-    public bool CorrectTimeFormatChecker(Request request)
-    {
+     
 
-        if (request.Date.Contains("+"))
-        {
-            return false;
-        }
-        else return true;    }*/
-
-    public static string ToJson(Response response)
+        public static string ToJson(Response response)
     {
         return JsonSerializer.Serialize(response, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase });
     }
