@@ -29,9 +29,14 @@ using System.Threading.Tasks;
             }
             else
             {
-                Status = Status + " ," + statusMessage;
+                Status = Status + " , " + statusMessage;
             }
         }
+
+    public void clearStatus(string statusMessage)
+    {
+        Status = "";
+    }
 
 
 }

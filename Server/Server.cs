@@ -5,6 +5,7 @@ using System;
 using System.Runtime.InteropServices;
 using System.Text.Json;
 using Assignment3TestSuite;
+using System.Net.Http.Headers;
 
 
 public class Server
@@ -144,26 +145,47 @@ public Request GetRequest(TcpClient client)
         foreach (var method in validMethods) {
             if (req.Method != method) 
             {
-             response.AddOrAppendToStatus("illegal method");
+             response.AddOrAppendToStatus("illegal method1");
 
                 if (req.Body == null && req.Path == null)
                 {
                     response.AddOrAppendToStatus("missing resource");
-                    Console.WriteLine("special case ");
+                    
                 }
+
+                if (req.Date.Contains("/"))
+                {
+                    response.clearStatus("");
+                    response.AddOrAppendToStatus("illegal date");
+                    WriteToStream(stream, JsonSerializer.Serialize(response));
+
+                }
+                
 
                 WriteToStream(stream, JsonSerializer.Serialize(response));
             }
         }
-     /*   if (req.Path == null && req.Body == null)
-        {
-            response.AddOrAppendToStatus("missing resource");
-            WriteToStream(stream, JsonSerializer.Serialize(response));
-        }
-     */
+       
+
+
+        /*   if (req.Path == null && req.Body == null)
+           {
+               response.AddOrAppendToStatus("missing resource");
+               WriteToStream(stream, JsonSerializer.Serialize(response));
+           }
+        */
 
     }
 
+    /*
+    public bool CorrectTimeFormatChecker(Request request)
+    {
+
+        if (request.Date.Contains("+"))
+        {
+            return false;
+        }
+        else return true;    }*/
 
     public static string ToJson(Response response)
     {
@@ -176,6 +198,6 @@ public Request GetRequest(TcpClient client)
     }
 
 
-
+   
 
 }
