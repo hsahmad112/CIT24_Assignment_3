@@ -114,6 +114,7 @@ public class Server
 
     void ValidateRequest(TcpClient client, Request req)
     {
+        
         Response response = new Response();
         var stream = client.GetStream();
         string[] validMethods = ["create", "read", "update", "delete", "echo"];
@@ -122,15 +123,75 @@ public class Server
 
 
         EchoChecker(req, client);
+        IsJason(req, client);
 
-        response = response.AddResponse(ValidateBody(req), DateValidator(req));
-        response = response.AddResponse(response, ValidateMethod(req));
-        response = response.AddResponse(response, ValidatePath(req));
+        //Run the ProcessValidatedRequests
+        ProcessValidatedRequests(req, client);
+        
+
+        response = RequestStructureChecker(req);
+
+
         WriteToStream(stream, JsonSerializer.Serialize(response));
-
 
     }
 
+
+
+    /************************************HELPER METHODS****************************************/
+    /******************************************************************************************/
+    /******************************************************************************************/
+    /******************************************************************************************/
+
+
+    void EchoChecker(Request request, TcpClient client)
+    {
+        Response response = new Response();
+
+        var stream = client.GetStream();
+
+        if (request.Method == "echo" && !String.IsNullOrEmpty(request.Body))
+        {
+
+            response.ClearBody();
+            response.ClearStatus();
+            response.AddorAppendToBody(request.Body);
+            WriteToStream(stream, JsonSerializer.Serialize(response)); 
+            
+            return;
+        }
+        else { return; }
+
+    }
+
+
+    Response IsJason(Request request, TcpClient client)
+    {
+        Response response = new Response();
+        var stream = client.GetStream();
+        
+        if (!String.IsNullOrEmpty(request.Body)) { 
+
+        try
+        {
+
+                JsonDocument.Parse(request.Body);
+        }
+        catch
+            {
+
+            response.AddOrAppendToStatus("illegal body");
+         
+            WriteToStream(stream, JsonSerializer.Serialize(response));
+
+
+            return response;
+        }
+
+            return response;
+        }
+        return response;
+    }
 
 
     /*******************************************METHODS****************************************/
@@ -138,45 +199,68 @@ public class Server
     /******************************************************************************************/
     /******************************************************************************************/
 
-    void EchoChecker(Request request, TcpClient client) 
+    Response RequestStructureChecker(Request request)
     {
         Response response = new Response();
+
+
+        Response DateResponse = new Response();
+        bool dateBool;
+        Response MethodResponse = new Response();
+        bool methodBool;
+        Response BodyResponse = new Response();
+        bool bodyBool;
+        Response PathResponse = new Response();
+        bool pathBool;
+
+
+        //DateResponse
+        DateResponse.Body = ValidateDate(request, out dateBool).Body;
+        DateResponse.Status = ValidateDate(request, out dateBool).Status;
+        //MethodResponse
+        MethodResponse.Body = ValidateMethod(request, out methodBool).Body;
+        MethodResponse.Status = ValidateMethod(request, out methodBool).Status;
+        //BodyResponse
+        BodyResponse.Body = ValidateBody(request, out bodyBool).Body;
+        BodyResponse.Status = ValidateBody(request, out bodyBool).Status;
+        //PathResponse
+        PathResponse.Body = ValidatePath(request, out pathBool).Body;
+        PathResponse.Status = ValidatePath(request, out pathBool).Status;
+
+
+        response.AddResponse(DateResponse, BodyResponse, MethodResponse, PathResponse);
+
+        return DateResponse;
         
-        var stream = client.GetStream();
+    }
 
-        if (request.Method == "echo" && !String.IsNullOrEmpty(request.Body))
-        {
-            response.ClearBody();
-            response.ClearStatus();
-            response.AddorAppendToBody(request.Body);
-            WriteToStream(stream, JsonSerializer.Serialize(response));
-            return;
-        }
-        else { return; }
 
-    } 
 
-    Response DateValidator(Request request)
+    Response ValidateDate(Request request, out bool DateValidated)
     {
+        DateValidated = false;
         Response response = new Response();
 
         if (request.Date == null)
         {
             response.AddOrAppendToStatus("missing date");
+            DateValidated = false;
             return response;
         }
 
         if (request.Date.Contains("/")) //uh not ideal but... works? if time (haha) allows do something smarter
         {
             response.AddOrAppendToStatus("illegal date");
+            DateValidated = false;
             return response;
         }
-
+            DateValidated = true;
         return response;
     }
 
-    Response ValidateMethod(Request request)
+    Response ValidateMethod(Request request, out bool MethodValidated)
     {
+        MethodValidated = false;
         Response response = new Response();
         string[] validMethods = ["create", "read", "update", "delete", "echo"];
         string[] validMethodsForBody = ["create", "update", "echo"];
@@ -186,6 +270,7 @@ public class Server
         {
             Console.WriteLine("Method not found, thus missing");
             response.AddOrAppendToStatus("missing method");
+            MethodValidated = false;
             return response;
         }
 
@@ -195,42 +280,33 @@ public class Server
             
                 Console.WriteLine("Method does not exist thus illegal");
                 response.AddOrAppendToStatus("illegal method");
+                MethodValidated = false;
                 return response;
             }
         }
-        
+        MethodValidated = true;
         return response;
     }
 
-    Response ValidateBody(Request request)
-    {
+    Response ValidateBody(Request request, out bool BodyValidated)
+    { 
+        BodyValidated = false;
         Response response = new Response();
 
         if (String.IsNullOrEmpty(request.Body)) {
-
             Console.WriteLine("Body contains nothing");
             response.AddOrAppendToStatus("missing body");
-            return response;
-        }
-        else { 
-        try
-        {
-            JsonDocument.Parse(request.Body);
-        }
-        catch
-        {
-            response.Status = "illegal body";
 
             return response;
-            }
         }
-
+        BodyValidated = true;
         return response;
     }
 
-     Response ValidatePath(Request request) {
+     Response ValidatePath(Request request, out bool PathValidated) {
 
         Response response = new Response();
+
 
         List<Category> categories = new List<Category>()
         {
@@ -246,25 +322,28 @@ public class Server
             {
                 Console.WriteLine("Path contains nothing OR nothing approved");
                 response.AddOrAppendToStatus("missing resource");
+                PathValidated = false;
                 return response;
             }
             if (request.Path.Contains(partialPath))
             {
-                //Run the ProcessValidatedRequests
+                   
 
-                Console.WriteLine("Valid path detected, continueing onwards to method ProcessValidatedRequests()");
-                ProcessValidatedRequests(request);
-                return response; //returning response after returning from Process ValidatedRequests
+                PathValidated = true;
+                return response; 
             }
             
         }
+        PathValidated = true;
         return response;
     }
 
     
-    Response ProcessValidatedRequests(Request request)
+    Response ProcessValidatedRequests(Request request, TcpClient client)
     {
         Response response = new Response();
+        var stream = client.GetStream();
+
 
         List<Category> categories = new List<Category>()
         {
@@ -272,9 +351,9 @@ public class Server
         new Category(2, "Condiments"),
         new Category(3, "Confections")
         };
+        const string smallerPartialPath = "/api/"; // hardcoded smallerpartial path here
 
-        //partially valid path arrived.
-        const string partialPath = "/api/categories"; //We hardcode the correct path here, as we only have one path.
+        const string partialPath = "/api/categories"; //We hardcode the partial path here
         
         IEnumerable<int> query = from Category category in categories
                                  select category.cid;
@@ -285,20 +364,31 @@ public class Server
             if (request.Path == testvar)
             {
                 Console.WriteLine($"Path {cid} was accessed");
-
+                return response;
             }
-            else if (request.Path == partialPath)
+            /*else if (request.Path == partialPath)
             {
                 Console.WriteLine("you accessed the whole categories table");
+                return response;
+            }*/
+
+            if ( String.IsNullOrEmpty(request.Path)) {
+                Console.WriteLine("is null");// if null, return back to ValidateRequest()
             }
 
-            else
+            else if(request.Path.Contains(smallerPartialPath) && !request.Path.Equals(partialPath))
             {
                 Console.WriteLine("Path does not exist");
+                response.ClearStatus();
+                response.SetBodyToNull();
+                response.AddOrAppendToStatus("4 bad request");
+                WriteToStream(stream, JsonSerializer.Serialize(response));
+                return response;
+
             }
 
         }
-        //
+        
         
         return response;
     }
@@ -315,19 +405,7 @@ public class Server
         return JsonSerializer.Deserialize<Request>(element, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase });
     }
 
-     bool IsJason(string potentialJsonString)
-    {
-        try
-        {
-            JsonDocument.Parse(potentialJsonString);
-            
-            return true;
-        }
-        catch 
-        {
-            return false;
-        }
-    }
+    
 
 
 }

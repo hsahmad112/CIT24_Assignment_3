@@ -61,6 +61,18 @@ public class Response
         return combinedResponse;
     }
 
+    public Response AddResponse(Response res1, Response res2, Response res3, Response res4)
+    {
+        string delimiter = " , ";
+        Response combinedResponse = new Response();
+        combinedResponse.Status = res1.Status += delimiter += res2.Status += delimiter += res3.Status += delimiter += res4.Status;
+        combinedResponse.Body = res1.Body += delimiter += res2.Body += delimiter += res3.Body += delimiter += res4.Body;
+
+        return combinedResponse;
+    }
+
+
+
     public void ClearStatus()
     {
         Status = "";
@@ -70,6 +82,11 @@ public class Response
     public void ClearBody()
     {
         Body = "";
+    }
+
+    public void SetBodyToNull()
+    {
+        Body = null;
     }
 }
 
