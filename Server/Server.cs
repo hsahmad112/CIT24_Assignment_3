@@ -155,18 +155,6 @@ public class Server
         else { return; }
 
     } 
-    Boolean EchoChecker(Request request)
-    {
-        
-        if(request.Method == "echo")
-        {
-            
-            return true;
-        }
-
-        return false;
-    }
-
 
     Response DateValidator(Request request)
     {
@@ -203,15 +191,13 @@ public class Server
 
 
         foreach (var method in validMethods) {
-            if (!method.Any(request.Method.Contains))
-            {
-                goto notfound;
+            if (!method.Any(request.Method.Contains)) { 
+            
+                Console.WriteLine("Method does not exist thus illegal");
+                response.AddOrAppendToStatus("illegal method");
+                return response;
             }
-           
         }
-        notfound:
-        Console.WriteLine("Method does not exist thus illegal");
-        response.AddOrAppendToStatus("illegal method");
         
         return response;
     }
