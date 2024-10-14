@@ -9,6 +9,7 @@ using System.Reflection;
 using Xunit.Sdk;
 using System.IO;
 using Microsoft.VisualStudio.TestPlatform.PlatformAbstractions.Interfaces;
+using System.Text.RegularExpressions;
 
 
 
@@ -101,24 +102,22 @@ public class Server
 
         var stream = client.GetStream();
         var jsonMessage = ReadFromStream(stream);
-        
+
         Request? clientRequest = clientRequest = JsonSerializer.Deserialize<Request>(jsonMessage, options);
         // Console.WriteLine("clientRequest body" + clientRequest.Body);  Proof of concept - getting body here
         return clientRequest;
     }
 
 
-    
-    
+
+
 
 
     void ValidateRequest(TcpClient client, Request req)
     {
-        
+
         Response response = new Response();
         var stream = client.GetStream();
-        string[] validMethods = ["create", "read", "update", "delete", "echo"];
-        string[] validMethodsForBody = ["create", "update", "echo"];
 
 
 
@@ -126,11 +125,12 @@ public class Server
         IsJason(req, client);
 
         //Run the ProcessValidatedRequests
-        
 
-        RequestValidator(req);
+        response = ProcessValidatedRequests(req, client);
 
-        response= ProcessValidatedRequests(req, client);
+        response = RequestValidator(req);
+
+
 
         WriteToStream(stream, JsonSerializer.Serialize(response));
 
@@ -156,8 +156,8 @@ public class Server
             response.ClearBody();
             response.ClearStatus();
             response.AddorAppendToBody(request.Body);
-            WriteToStream(stream, JsonSerializer.Serialize(response)); 
-            
+            WriteToStream(stream, JsonSerializer.Serialize(response));
+
             return;
         }
         else { return; }
@@ -169,24 +169,25 @@ public class Server
     {
         Response response = new Response();
         var stream = client.GetStream();
-        
-        if (!String.IsNullOrEmpty(request.Body)) { 
 
-        try
+        if (!String.IsNullOrEmpty(request.Body))
         {
 
-                JsonDocument.Parse(request.Body);
-        }
-        catch
+            try
             {
 
-            response.AddOrAppendToStatus("illegal body");
-         
-            WriteToStream(stream, JsonSerializer.Serialize(response));
+                JsonDocument.Parse(request.Body);
+            }
+            catch
+            {
+
+                response.AddOrAppendToStatus("illegal body");
+
+                WriteToStream(stream, JsonSerializer.Serialize(response));
 
 
-            return response;
-        }
+                return response;
+            }
 
             return response;
         }
@@ -215,23 +216,23 @@ public class Server
 
 
         //DateResponse
-        DateResponse.Body = ValidateDate(request, out dateBool).Body;
+
         DateResponse.Status = ValidateDate(request, out dateBool).Status;
         //MethodResponse
-        MethodResponse.Body = ValidateMethod(request, out methodBool).Body;
+
         MethodResponse.Status = ValidateMethod(request, out methodBool).Status;
         //BodyResponse
-        BodyResponse.Body = ValidateBody(request, out bodyBool).Body;
+
         BodyResponse.Status = ValidateBody(request, out bodyBool).Status;
         //PathResponse
-        PathResponse.Body = ValidatePath(request, out pathBool).Body;
+
         PathResponse.Status = ValidatePath(request, out pathBool).Status;
 
 
         response.AddResponse(DateResponse, BodyResponse, MethodResponse, PathResponse);
 
         return DateResponse;
-        
+
     }
 
 
@@ -254,7 +255,7 @@ public class Server
             DateValidated = false;
             return response;
         }
-            DateValidated = true;
+        DateValidated = true;
         return response;
     }
 
@@ -275,9 +276,11 @@ public class Server
         }
 
 
-        foreach (var method in validMethods) {
-            if (!method.Any(request.Method.Contains)) { 
-            
+        foreach (var method in validMethods)
+        {
+            if (!method.Any(request.Method.Contains))
+            {
+
                 Console.WriteLine("Method does not exist thus illegal");
                 response.AddOrAppendToStatus("illegal method");
                 MethodValidated = false;
@@ -289,11 +292,12 @@ public class Server
     }
 
     Response ValidateBody(Request request, out bool BodyValidated)
-    { 
+    {
         BodyValidated = false;
         Response response = new Response();
 
-        if (String.IsNullOrEmpty(request.Body) /*&& request.Method != "create"*/) {
+        if (String.IsNullOrEmpty(request.Body) /*&& request.Method != "create"*/)
+        {
             Console.WriteLine("Body contains nothing");
             response.AddOrAppendToStatus("missing body");
 
@@ -303,7 +307,8 @@ public class Server
         return response;
     }
 
-     Response ValidatePath(Request request, out bool PathValidated) {
+    Response ValidatePath(Request request, out bool PathValidated)
+    {
 
         Response response = new Response();
 
@@ -327,133 +332,134 @@ public class Server
             }
             if (request.Path.Contains(partialPath))
             {
-                   
+
 
                 PathValidated = true;
-                return response; 
+                return response;
             }
-            
+
         }
         PathValidated = true;
         return response;
     }
 
-    
+
     Response ProcessValidatedRequests(Request request, TcpClient client)
     {
         Response response = new Response();
         var stream = client.GetStream();
 
+        CategoryList categoryList = new CategoryList();
 
-        List<Category> categories = new List<Category>()
-        {
-        new Category(1,"Beverages"),
-        new Category(2, "Condiments"),
-        new Category(3, "Confections")
-        };
         const string smallerPartialPath = "/api/"; // hardcoded smallerpartial path here
 
         const string partialPath = "/api/categories"; //We hardcode the partial path here
-        
-        IEnumerable<int> query = from Category category in categories
-                                 select category.cid;
 
 
-        foreach (int cid in query)
+
+        var regDoesPathContainNumber = new Regex(@"/api/categories/\d+");
+
+
+
+        switch (request.Method)
         {
-            string testvar = partialPath + $"/{cid}";
+            case "create":
+                if (categoryList.DoesCategoryExist(4)
+                    break;
+        }
 
-            if (request.Path == testvar)
+        if (request.Path == testvar)
+        {
+            Console.WriteLine($"Path  was accessed");
+            if (request.Method.Equals("create"))
             {
-                Console.WriteLine($"Path {cid} was accessed");
-                if (request.Method.Equals("create"))
-                {
-                    Console.WriteLine("Trying to create on something that exists");
-                    response.ClearStatus();
-                    response.SetBodyToNull();
-                    response.AddOrAppendToStatus("4 bad request");
-                    WriteToStream(stream, JsonSerializer.Serialize(response));
-                    return response;
-                }
-
-                if (request.Method.Equals("read"))
-                {
-                    Console.WriteLine($"trying to read CID: {cid}");
-                    response.ClearStatus();
-                    response.ClearBody();
-                    response.AddOrAppendToStatus("1 Ok");
-                    response.AddorAppendToBody(JsonSerializer.Serialize(categories[cid-1]));
-                    WriteToStream(stream, JsonSerializer.Serialize(response));
-                    return response;
-                }
-
-                return response;
-            }
-            if (request.Path == partialPath)
-            {
-                Console.WriteLine("you accessed the whole categories table");
-                if (request.Method.Equals("update"))
-                {
-                    Console.WriteLine("trying to update the whole table");
-                    response.ClearStatus();
-                    response.SetBodyToNull();
-                    response.AddOrAppendToStatus("4 bad request");
-                    WriteToStream(stream, JsonSerializer.Serialize(response));
-                    return response;
-                }
-
-                if (request.Method.Equals("delete"))
-                {
-                    Console.WriteLine("trying to delete the whole table incorrectly");
-                    response.ClearStatus();
-                    response.SetBodyToNull();
-                    response.AddOrAppendToStatus("4 bad request");
-                    WriteToStream(stream, JsonSerializer.Serialize(response));
-                }
-                if (request.Method.Equals("read"))
-                {
-                    Console.WriteLine($"trying to read the whole table");
-                    response.ClearStatus();
-                    response.ClearBody();
-                    response.AddOrAppendToStatus("1 Ok");
-                    response.AddorAppendToBody(JsonSerializer.Serialize(categories));
-                    WriteToStream(stream, JsonSerializer.Serialize(response));
-                    return response;
-                }
-
-                return response;
-            }
-
-            if (String.IsNullOrEmpty(request.Path)) {
-                Console.WriteLine("is null");// if null, return back to ValidateRequest()
-            }
-
-            else if(request.Path.Contains(smallerPartialPath) && !request.Path.Equals(partialPath) && request.Path.Contains("1"))
-
-            //  bool isIntString = "your string".All(char.IsDigit)
-            //source: https://stackoverflow.com/questions/18251875/in-c-how-to-check-whether-a-string-contains-an-integer
-            {
-                Console.WriteLine("Path does not exist");
+                Console.WriteLine("Trying to create on something that exists");
                 response.ClearStatus();
                 response.SetBodyToNull();
                 response.AddOrAppendToStatus("4 bad request");
                 WriteToStream(stream, JsonSerializer.Serialize(response));
                 return response;
-
             }
-            else 
+
+            if (request.Method.Equals("read"))
             {
-                Console.WriteLine("You entered a number in your path but it does not exist");
+                Console.WriteLine($"trying to read CID:");
                 response.ClearStatus();
-                response.SetBodyToNull();
-                response.AddOrAppendToStatus("5 Not found");
+                response.ClearBody();
+                response.AddOrAppendToStatus("1 Ok");
+                response.AddorAppendToBody(JsonSerializer.Serialize(categories[cid - 1]));
                 WriteToStream(stream, JsonSerializer.Serialize(response));
                 return response;
             }
 
-            
+            return response;
+        }
+        if (request.Path == partialPath)
+        {
+            Console.WriteLine("you accessed the whole categories table");
+            if (request.Method.Equals("update"))
+            {
+                Console.WriteLine("trying to update the whole table");
+                response.ClearStatus();
+                response.SetBodyToNull();
+                response.AddOrAppendToStatus("4 bad request");
+                WriteToStream(stream, JsonSerializer.Serialize(response));
+                return response;
+            }
+
+            if (request.Method.Equals("delete"))
+            {
+                Console.WriteLine("trying to delete the whole table incorrectly");
+                response.ClearStatus();
+                response.SetBodyToNull();
+                response.AddOrAppendToStatus("4 bad request");
+                WriteToStream(stream, JsonSerializer.Serialize(response));
+            }
+            if (request.Method.Equals("read"))
+            {
+                Console.WriteLine($"trying to read the whole table");
+                response.ClearStatus();
+                response.ClearBody();
+                response.AddOrAppendToStatus("1 Ok");
+                response.AddorAppendToBody(JsonSerializer.Serialize(categories));
+                WriteToStream(stream, JsonSerializer.Serialize(response));
+                return response;
+            }
+
+            return response;
+        }
+
+        if (String.IsNullOrEmpty(request.Path))
+        {
+            Console.WriteLine("is null");// if null, return back to ValidateRequest()
+        }
+
+        else if (request.Path.Contains(smallerPartialPath) && !request.Path.Equals(partialPath) && request.Path.Contains("1"))
+
+        //  bool isIntString = "your string".All(char.IsDigit)
+        //source: https://stackoverflow.com/questions/18251875/in-c-how-to-check-whether-a-string-contains-an-integer
+        {
+            Console.WriteLine("Path does not exist");
+            response.ClearStatus();
+            response.SetBodyToNull();
+            response.AddOrAppendToStatus("4 bad request");
+            WriteToStream(stream, JsonSerializer.Serialize(response));
+            return response;
 
         }
+        else
+        {
+            Console.WriteLine("You entered a number in your path but it does not exist");
+            response.ClearStatus();
+            response.SetBodyToNull();
+            response.AddOrAppendToStatus("5 Not found");
+            WriteToStream(stream, JsonSerializer.Serialize(response));
+            return response;
+        }
+
+
+
+
 
         return response;
     }
@@ -470,7 +476,7 @@ public class Server
         return JsonSerializer.Deserialize<Request>(element, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase });
     }
 
-    
+
 
 
 }
