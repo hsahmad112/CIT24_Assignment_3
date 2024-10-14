@@ -126,11 +126,11 @@ public class Server
         IsJason(req, client);
 
         //Run the ProcessValidatedRequests
-        ProcessValidatedRequests(req, client);
         
 
-        response = RequestStructureChecker(req);
+        RequestValidator(req);
 
+        response= ProcessValidatedRequests(req, client);
 
         WriteToStream(stream, JsonSerializer.Serialize(response));
 
@@ -199,7 +199,7 @@ public class Server
     /******************************************************************************************/
     /******************************************************************************************/
 
-    Response RequestStructureChecker(Request request)
+    Response RequestValidator(Request request)
     {
         Response response = new Response();
 
@@ -293,7 +293,7 @@ public class Server
         BodyValidated = false;
         Response response = new Response();
 
-        if (String.IsNullOrEmpty(request.Body)) {
+        if (String.IsNullOrEmpty(request.Body) /*&& request.Method != "create"*/) {
             Console.WriteLine("Body contains nothing");
             response.AddOrAppendToStatus("missing body");
 
@@ -357,6 +357,8 @@ public class Server
         
         IEnumerable<int> query = from Category category in categories
                                  select category.cid;
+
+
         foreach (int cid in query)
         {
             string testvar = partialPath + $"/{cid}";
@@ -364,19 +366,72 @@ public class Server
             if (request.Path == testvar)
             {
                 Console.WriteLine($"Path {cid} was accessed");
+                if (request.Method.Equals("create"))
+                {
+                    Console.WriteLine("Trying to create on something that exists");
+                    response.ClearStatus();
+                    response.SetBodyToNull();
+                    response.AddOrAppendToStatus("4 bad request");
+                    WriteToStream(stream, JsonSerializer.Serialize(response));
+                    return response;
+                }
+
+                if (request.Method.Equals("read"))
+                {
+                    Console.WriteLine($"trying to read CID: {cid}");
+                    response.ClearStatus();
+                    response.ClearBody();
+                    response.AddOrAppendToStatus("1 Ok");
+                    response.AddorAppendToBody(JsonSerializer.Serialize(categories[cid-1]));
+                    WriteToStream(stream, JsonSerializer.Serialize(response));
+                    return response;
+                }
+
                 return response;
             }
-            /*else if (request.Path == partialPath)
+            if (request.Path == partialPath)
             {
                 Console.WriteLine("you accessed the whole categories table");
-                return response;
-            }*/
+                if (request.Method.Equals("update"))
+                {
+                    Console.WriteLine("trying to update the whole table");
+                    response.ClearStatus();
+                    response.SetBodyToNull();
+                    response.AddOrAppendToStatus("4 bad request");
+                    WriteToStream(stream, JsonSerializer.Serialize(response));
+                    return response;
+                }
 
-            if ( String.IsNullOrEmpty(request.Path)) {
+                if (request.Method.Equals("delete"))
+                {
+                    Console.WriteLine("trying to delete the whole table incorrectly");
+                    response.ClearStatus();
+                    response.SetBodyToNull();
+                    response.AddOrAppendToStatus("4 bad request");
+                    WriteToStream(stream, JsonSerializer.Serialize(response));
+                }
+                if (request.Method.Equals("read"))
+                {
+                    Console.WriteLine($"trying to read the whole table");
+                    response.ClearStatus();
+                    response.ClearBody();
+                    response.AddOrAppendToStatus("1 Ok");
+                    response.AddorAppendToBody(JsonSerializer.Serialize(categories));
+                    WriteToStream(stream, JsonSerializer.Serialize(response));
+                    return response;
+                }
+
+                return response;
+            }
+
+            if (String.IsNullOrEmpty(request.Path)) {
                 Console.WriteLine("is null");// if null, return back to ValidateRequest()
             }
 
-            else if(request.Path.Contains(smallerPartialPath) && !request.Path.Equals(partialPath))
+            else if(request.Path.Contains(smallerPartialPath) && !request.Path.Equals(partialPath) && request.Path.Contains("1"))
+
+            //  bool isIntString = "your string".All(char.IsDigit)
+            //source: https://stackoverflow.com/questions/18251875/in-c-how-to-check-whether-a-string-contains-an-integer
             {
                 Console.WriteLine("Path does not exist");
                 response.ClearStatus();
@@ -386,10 +441,20 @@ public class Server
                 return response;
 
             }
+            else 
+            {
+                Console.WriteLine("You entered a number in your path but it does not exist");
+                response.ClearStatus();
+                response.SetBodyToNull();
+                response.AddOrAppendToStatus("5 Not found");
+                WriteToStream(stream, JsonSerializer.Serialize(response));
+                return response;
+            }
+
+            
 
         }
-        
-        
+
         return response;
     }
 
